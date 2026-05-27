@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeanRating } from "@/components/BeanRating";
-import { addBeenToCache, updateBeenToCacheCriteria } from "@/lib/beenToCache";
+import {
+  addBeenToCache,
+  getBeenToCacheEntry,
+  updateBeenToCacheCriteria,
+} from "@/lib/beenToCache";
+import { cachedShopToPlacePayload, getCachedShop } from "@/lib/shopCache";
 
 type Criteria = {
   priceRating: number | null;
@@ -38,32 +43,62 @@ export function ShopCriteriaForm({ shopId, initial }: Props) {
     setLoading(true);
     setError(null);
 
+    const criteriaPayload = {
+      priceRating,
+      flavorRating,
+      flavorNotes: flavorNotes || null,
+      vibeRating,
+      foodRating,
+      favoriteItems: favoriteItems || null,
+    };
+
+    updateBeenToCacheCriteria(shopId, criteriaPayload);
+
     try {
+      const cached = getBeenToCacheEntry(shopId);
+      const session = getCachedShop(shopId);
+      const shopPayload = cached
+        ? cachedShopToPlacePayload({
+            id: shopId,
+            name: cached.shop.name,
+            address: cached.shop.address,
+            city: cached.shop.city,
+            externalPlaceId: cached.shop.externalPlaceId,
+            lat: cached.shop.lat,
+            lng: cached.shop.lng,
+          })
+        : session
+          ? cachedShopToPlacePayload(session)
+          : undefined;
+
       const res = await fetch("/api/rank/criteria", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shopId,
-          priceRating,
-          flavorRating,
-          flavorNotes: flavorNotes || null,
-          vibeRating,
-          foodRating,
-          favoriteItems: favoriteItems || null,
+          ...criteriaPayload,
+          ...(shopPayload && cached
+            ? {
+                shop: shopPayload,
+                ranking: {
+                  sentiment: cached.sentiment,
+                  rankPosition: cached.rankPosition,
+                  ratingOutOf10: cached.ratingOutOf10,
+                  priceRating: criteriaPayload.priceRating,
+                  flavorRating: criteriaPayload.flavorRating,
+                  flavorNotes: criteriaPayload.flavorNotes,
+                  vibeRating: criteriaPayload.vibeRating,
+                  foodRating: criteriaPayload.foodRating,
+                  favoriteItems: criteriaPayload.favoriteItems,
+                },
+              }
+            : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error ?? "Failed to save");
       }
-      updateBeenToCacheCriteria(shopId, {
-        priceRating,
-        flavorRating,
-        flavorNotes: flavorNotes || null,
-        vibeRating,
-        foodRating,
-        favoriteItems: favoriteItems || null,
-      });
       if (data.ranking) {
         addBeenToCache(data.ranking);
       }
