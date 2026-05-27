@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RemoveFromWantToTryButton } from "@/components/RemoveFromWantToTryButton";
+import { shopPath, type CachedShop } from "@/lib/shopCache";
 
 type Entry = {
   id: string;
@@ -44,7 +45,12 @@ export function WantToTryList({ entries }: { entries: Entry[] }) {
             className="flex items-center gap-3 rounded-2xl border border-cream-dark bg-white p-4"
           >
             <Link
-              href={`/shop/${entry.shop.id}`}
+              href={shopPath({
+                id: entry.shop.id,
+                name: entry.shop.name,
+                address: entry.shop.address,
+                city: entry.shop.city,
+              } satisfies CachedShop)}
               className="min-w-0 flex-1 transition hover:opacity-80"
             >
               <h3 className="truncate font-medium text-espresso">
@@ -59,7 +65,12 @@ export function WantToTryList({ entries }: { entries: Entry[] }) {
               shopName={entry.shop.name}
             />
             <Link
-              href={`/shop/${entry.shop.id}`}
+              href={shopPath({
+                id: entry.shop.id,
+                name: entry.shop.name,
+                address: entry.shop.address,
+                city: entry.shop.city,
+              } satisfies CachedShop)}
               className="shrink-0 text-latte-light"
               aria-hidden
             >

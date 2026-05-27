@@ -9,8 +9,10 @@ export async function POST(req: Request) {
 
   let shopId = body.shopId as string | undefined;
 
+  let shop = null as Awaited<ReturnType<typeof findOrCreateShopFromPlace>> | null;
+
   if (!shopId && body.externalPlaceId && body.name) {
-    const shop = await findOrCreateShopFromPlace({
+    shop = await findOrCreateShopFromPlace({
       externalPlaceId: String(body.externalPlaceId).trim(),
       name: String(body.name).trim(),
       address: body.address ?? null,
@@ -25,9 +27,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "shopId required" }, { status: 400 });
   }
 
+  if (!shop) {
+    const { getShop } = await import("@/lib/shops");
+    shop = await getShop(shopId.trim());
+  }
+
   try {
     await addToWantToTry(user.id, shopId.trim());
-    return NextResponse.json({ ok: true, shopId: shopId.trim() });
+    return NextResponse.json({
+      ok: true,
+      shopId: shopId.trim(),
+      shop,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Could not save";
     return NextResponse.json({ error: message }, { status: 400 });

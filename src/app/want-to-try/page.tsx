@@ -1,10 +1,34 @@
 import Link from "next/link";
-import { WantToTryList } from "@/components/WantToTryList";
-import { getCurrentUser } from "@/lib/session";
-import { getWantToTryList } from "@/lib/wantToTry";
+import { WantToTryListWithCache } from "@/components/WantToTryListWithCache";
+import { ensureUserInDb } from "@/lib/session";
+import { addToWantToTry, getWantToTryList } from "@/lib/wantToTry";
+import { upsertShopById } from "@/lib/shops";
+import {
+  cachedShopToPlacePayload,
+  shopFromSearchParams,
+} from "@/lib/shopCache";
 
-export default async function WantToTryPage() {
-  const user = await getCurrentUser();
+export default async function WantToTryPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const user = await ensureUserInDb();
+  const sp = await searchParams;
+  const addId = typeof sp.add === "string" ? sp.add : undefined;
+
+  if (user && addId) {
+    const fromQuery = shopFromSearchParams(addId, sp);
+    if (fromQuery) {
+      await upsertShopById(addId, cachedShopToPlacePayload(fromQuery));
+      try {
+        await addToWantToTry(user.id, addId);
+      } catch {
+        // e.g. already on been-to list — still show on want-to-try via client cache
+      }
+    }
+  }
+
   const entries = user ? await getWantToTryList(user.id) : [];
 
   return (
@@ -30,7 +54,7 @@ export default async function WantToTryPage() {
             Find shops →
           </Link>
         </div>
-        <WantToTryList entries={entries} />
+        <WantToTryListWithCache serverEntries={entries} />
       </section>
     </div>
   );

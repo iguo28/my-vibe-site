@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { removeWantToTryCache } from "@/lib/wantToTryCache";
 
 export function RemoveFromWantToTryButton({
   shopId,
@@ -24,6 +25,7 @@ export function RemoveFromWantToTryButton({
         body: JSON.stringify({ shopId }),
       });
       if (!res.ok) throw new Error("Failed");
+      removeWantToTryCache(shopId);
       router.refresh();
     } catch {
       setLoading(false);

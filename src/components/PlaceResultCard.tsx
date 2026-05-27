@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WorldPlace } from "@/lib/places";
-import { cacheShop, shopPath, toCachedShop } from "@/lib/shopCache";
+import {
+  cacheShop,
+  shopPath,
+  toCachedShop,
+  wantToTryPath,
+} from "@/lib/shopCache";
+import { addWantToTryCache } from "@/lib/wantToTryCache";
 
 export function PlaceResultCard({ place }: { place: WorldPlace }) {
   const router = useRouter();
   const [wantLoading, setWantLoading] = useState(false);
   const [beenLoading, setBeenLoading] = useState(false);
+  const [wantError, setWantError] = useState<string | null>(null);
 
   async function importShop() {
     const res = await fetch("/api/shops/import", {
@@ -22,19 +29,33 @@ export function PlaceResultCard({ place }: { place: WorldPlace }) {
 
   async function addWantToTry() {
     setWantLoading(true);
+    setWantError(null);
     try {
       const res = await fetch("/api/want-to-try", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(place),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Failed");
+        throw new Error(data.error ?? "Could not save");
       }
-      router.push("/want-to-try");
+      const shop = toCachedShop(
+        data.shop ?? {
+          id: data.shopId,
+          name: place.name,
+          address: place.address,
+          city: place.city,
+          externalPlaceId: place.externalPlaceId,
+          lat: place.lat,
+          lng: place.lng,
+        }
+      );
+      addWantToTryCache(shop);
+      router.push(wantToTryPath(shop));
       router.refresh();
-    } catch {
+    } catch (e) {
+      setWantError(e instanceof Error ? e.message : "Could not save");
       setWantLoading(false);
     }
   }
@@ -62,7 +83,7 @@ export function PlaceResultCard({ place }: { place: WorldPlace }) {
           {location || place.subtitle}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center">
+      <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={addWantToTry}
@@ -79,6 +100,11 @@ export function PlaceResultCard({ place }: { place: WorldPlace }) {
         >
           {beenLoading ? "Opening…" : "Been to →"}
         </button>
+        {wantError && (
+          <p className="max-w-[12rem] text-right text-xs text-red-700">
+            {wantError}
+          </p>
+        )}
       </div>
     </div>
   );

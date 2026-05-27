@@ -47,6 +47,11 @@ export function shopPath(shop: CachedShop): string {
   return `/shop/${shop.id}?${q}`;
 }
 
+export function wantToTryPath(shop: CachedShop): string {
+  const q = shopToQueryString(shop);
+  return `/want-to-try?add=${encodeURIComponent(shop.id)}&${q}`;
+}
+
 export function shopFromSearchParams(
   shopId: string,
   sp: Record<string, string | string[] | undefined>
