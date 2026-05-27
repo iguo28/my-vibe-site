@@ -5,14 +5,22 @@ import { useEffect, useState } from "react";
 import { RankFlow } from "@/components/RankFlow";
 import { getCachedShop, type CachedShop } from "@/lib/shopCache";
 
-export function ShopPageFromCache({ shopId }: { shopId: string }) {
-  const [shop, setShop] = useState<CachedShop | null>(null);
-  const [ready, setReady] = useState(false);
+export function ShopPageFromCache({
+  shopId,
+  initialShop = null,
+}: {
+  shopId: string;
+  initialShop?: CachedShop | null;
+}) {
+  const [shop, setShop] = useState<CachedShop | null>(initialShop);
+  const [ready, setReady] = useState(!!initialShop);
 
   useEffect(() => {
-    setShop(getCachedShop(shopId));
+    if (!shop) {
+      setShop(getCachedShop(shopId));
+    }
     setReady(true);
-  }, [shopId]);
+  }, [shopId, shop]);
 
   if (!ready) {
     return (

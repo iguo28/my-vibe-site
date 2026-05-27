@@ -10,19 +10,32 @@ import {
   getUserRankingForShop,
   getUserRankings,
   getAveragePriceByShops,
+  upsertShopById,
 } from "@/lib/shops";
+import { cachedShopToPlacePayload, shopFromSearchParams } from "@/lib/shopCache";
 import { isOnWantToTry } from "@/lib/wantToTry";
 import type { Sentiment } from "@/db/schema";
 
 export default async function ShopPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const shop = await getShop(id);
+  const sp = await searchParams;
+
+  let shop = await getShop(id);
+  const fromQuery = shopFromSearchParams(id, sp);
+
+  if (!shop && fromQuery) {
+    await upsertShopById(id, cachedShopToPlacePayload(fromQuery));
+    shop = await getShop(id);
+  }
+
   if (!shop) {
-    return <ShopPageFromCache shopId={id} />;
+    return <ShopPageFromCache shopId={id} initialShop={fromQuery} />;
   }
 
   await ensureUserInDb();

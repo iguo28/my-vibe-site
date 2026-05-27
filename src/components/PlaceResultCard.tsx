@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WorldPlace } from "@/lib/places";
-import { cacheShop } from "@/lib/shopCache";
+import { cacheShop, shopPath, toCachedShop } from "@/lib/shopCache";
 
 export function PlaceResultCard({ place }: { place: WorldPlace }) {
   const router = useRouter();
@@ -43,16 +43,9 @@ export function PlaceResultCard({ place }: { place: WorldPlace }) {
     setBeenLoading(true);
     try {
       const shop = await importShop();
-      cacheShop({
-        id: shop.id,
-        name: shop.name,
-        address: shop.address,
-        city: shop.city,
-        externalPlaceId: shop.externalPlaceId,
-        lat: shop.lat,
-        lng: shop.lng,
-      });
-      router.push(`/shop/${shop.id}`);
+      const cached = toCachedShop(shop);
+      cacheShop(cached);
+      router.push(shopPath(cached));
     } catch {
       setBeenLoading(false);
     }
