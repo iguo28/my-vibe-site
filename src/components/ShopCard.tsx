@@ -12,6 +12,7 @@ type Shop = {
 
 export function ShopCard({
   shop,
+  href,
   sentiment,
   ratingOutOf10,
   rank,
@@ -20,6 +21,7 @@ export function ShopCard({
   priceCount,
 }: {
   shop: Shop;
+  href?: string;
   sentiment?: Sentiment;
   ratingOutOf10?: number | null;
   rank?: number;
@@ -33,7 +35,7 @@ export function ShopCard({
 
   return (
     <Link
-      href={`/shop/${shop.id}`}
+      href={href ?? `/shop/${shop.id}`}
       className="flex items-center gap-4 rounded-2xl border border-cream-dark bg-white p-4 transition hover:border-latte/40 hover:shadow-sm"
     >
       {rank != null && (

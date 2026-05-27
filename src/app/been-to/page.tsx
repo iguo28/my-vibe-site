@@ -10,15 +10,7 @@ import { toCachedBeenToRanking } from "@/lib/beenToSerialize";
 export default async function BeenToPage() {
   const user = await ensureUserInDb();
   const rankings = user ? await getUserRankings(user.id) : [];
-  const serverRankings = rankings.map((r) =>
-    toCachedBeenToRanking({
-      id: r.id,
-      rankPosition: r.rankPosition,
-      sentiment: r.sentiment,
-      ratingOutOf10: r.ratingOutOf10,
-      shop: r.shop,
-    })
-  );
+  const serverRankings = rankings.map((r) => toCachedBeenToRanking({ ...r, shop: r.shop }));
   const shopIds = rankings.map((r) => r.shop.id);
   const priceAverages = await getAveragePriceByShops(shopIds);
 

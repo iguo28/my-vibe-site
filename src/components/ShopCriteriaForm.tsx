@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeanRating } from "@/components/BeanRating";
+import { addBeenToCache, updateBeenToCacheCriteria } from "@/lib/beenToCache";
 
 type Criteria = {
   priceRating: number | null;
@@ -51,11 +52,22 @@ export function ShopCriteriaForm({ shopId, initial }: Props) {
           favoriteItems: favoriteItems || null,
         }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? "Failed to save");
       }
-      router.push("/");
+      updateBeenToCacheCriteria(shopId, {
+        priceRating,
+        flavorRating,
+        flavorNotes: flavorNotes || null,
+        vibeRating,
+        foodRating,
+        favoriteItems: favoriteItems || null,
+      });
+      if (data.ranking) {
+        addBeenToCache(data.ranking);
+      }
+      router.push("/been-to");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

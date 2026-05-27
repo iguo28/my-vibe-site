@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { ensureUser } from "@/lib/session";
-import { updateShopCriteria, type ShopCriteriaInput } from "@/lib/shops";
+import {
+  getRankingEntryForShop,
+  updateShopCriteria,
+  type ShopCriteriaInput,
+} from "@/lib/shops";
 
 export async function POST(req: Request) {
   const user = await ensureUser();
@@ -12,8 +16,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const ranking = await updateShopCriteria(user.id, shopId, criteria);
-    return NextResponse.json({ ok: true, ranking });
+    const row = await updateShopCriteria(user.id, shopId, criteria);
+    const ranking = await getRankingEntryForShop(user.id, shopId);
+    return NextResponse.json({ ok: true, ranking, row });
   } catch {
     return NextResponse.json(
       { error: "Add this shop to your been-to list first" },

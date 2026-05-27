@@ -108,7 +108,14 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     ranking?: CachedBeenToRanking | null
   ) {
     if (ranking) {
-      addBeenToCache(ranking);
+      addBeenToCache({
+        ...ranking,
+        shop: {
+          ...ranking.shop,
+          id: shopId,
+          name: ranking.shop.name || shopName,
+        },
+      });
       return;
     }
     const cached = getCachedShop(shopId);

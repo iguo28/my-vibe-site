@@ -370,13 +370,84 @@ export async function getRankingEntryForShop(userId: string, shopId: string) {
     rankPosition: ranking.rankPosition,
     sentiment: ranking.sentiment,
     ratingOutOf10: ranking.ratingOutOf10,
+    priceRating: ranking.priceRating,
+    flavorRating: ranking.flavorRating,
+    flavorNotes: ranking.flavorNotes,
+    vibeRating: ranking.vibeRating,
+    foodRating: ranking.foodRating,
+    favoriteItems: ranking.favoriteItems,
     shop: {
       id: shop.id,
       name: shop.name,
       address: shop.address,
       city: shop.city,
+      externalPlaceId: shop.externalPlaceId,
+      lat: shop.lat,
+      lng: shop.lng,
     },
   };
+}
+
+/** Recreate a ranking on this server from browser backup (Vercel). */
+export async function restoreRankingFromCache(
+  userId: string,
+  shopId: string,
+  shopPayload: ClientShopPayload,
+  cached: {
+    sentiment: string;
+    rankPosition: number;
+    ratingOutOf10?: number | null;
+    priceRating?: number | null;
+    flavorRating?: number | null;
+    flavorNotes?: string | null;
+    vibeRating?: number | null;
+    foodRating?: number | null;
+    favoriteItems?: string | null;
+  }
+) {
+  await upsertShopById(shopId, shopPayload);
+
+  const existing = await getUserRankingForShop(userId, shopId);
+  const sentiment = cached.sentiment as Sentiment;
+  const now = new Date();
+
+  if (existing) {
+    await db
+      .update(userRankings)
+      .set({
+        sentiment,
+        rankPosition: cached.rankPosition,
+        ratingOutOf10: cached.ratingOutOf10 ?? existing.ratingOutOf10,
+        priceRating: cached.priceRating ?? existing.priceRating,
+        flavorRating: cached.flavorRating ?? existing.flavorRating,
+        flavorNotes: cached.flavorNotes ?? existing.flavorNotes,
+        vibeRating: cached.vibeRating ?? existing.vibeRating,
+        foodRating: cached.foodRating ?? existing.foodRating,
+        favoriteItems: cached.favoriteItems ?? existing.favoriteItems,
+        updatedAt: now,
+      })
+      .where(eq(userRankings.id, existing.id));
+  } else {
+    await db.insert(userRankings).values({
+      id: id(),
+      userId,
+      coffeeShopId: shopId,
+      rankPosition: cached.rankPosition,
+      sentiment,
+      score: initialScoreFromSentiment(sentiment),
+      updatedAt: now,
+      ratingOutOf10: cached.ratingOutOf10 ?? null,
+      priceRating: cached.priceRating ?? null,
+      flavorRating: cached.flavorRating ?? null,
+      flavorNotes: cached.flavorNotes ?? null,
+      vibeRating: cached.vibeRating ?? null,
+      foodRating: cached.foodRating ?? null,
+      favoriteItems: cached.favoriteItems ?? null,
+    });
+    await bumpGlobalSentiment(shopId, sentiment);
+  }
+
+  return getRankingEntryForShop(userId, shopId);
 }
 
 /** Shops user has ranked, sorted by score (for binary-search placement) */

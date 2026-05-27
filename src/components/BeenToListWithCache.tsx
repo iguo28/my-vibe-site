@@ -5,7 +5,6 @@ import { BeenToList } from "@/components/BeenToList";
 import {
   getBeenToCache,
   mergeBeenToRankings,
-  syncBeenToCache,
   type CachedBeenToRanking,
 } from "@/lib/beenToCache";
 import type { ShopPriceAverage } from "@/lib/shops";
@@ -20,19 +19,15 @@ export function BeenToListWithCache({
   const [cacheTick, setCacheTick] = useState(0);
 
   useEffect(() => {
-    const sync = () => {
-      syncBeenToCache(serverRankings.map((r) => r.shop.id));
-      setCacheTick((t) => t + 1);
-    };
-    sync();
-    window.addEventListener("cafe-connect-been-to-changed", sync);
+    const onChange = () => setCacheTick((t) => t + 1);
+    window.addEventListener("cafe-connect-been-to-changed", onChange);
     return () =>
-      window.removeEventListener("cafe-connect-been-to-changed", sync);
-  }, [serverRankings]);
+      window.removeEventListener("cafe-connect-been-to-changed", onChange);
+  }, []);
 
   const rankings = useMemo(() => {
     return mergeBeenToRankings(serverRankings, getBeenToCache());
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-merge after cache sync
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-merge when cache updates
   }, [serverRankings, cacheTick]);
 
   return <BeenToList rankings={rankings} priceAverages={priceAverages} />;

@@ -19,15 +19,7 @@ export default async function HomePage({
   const query = q?.trim() ?? "";
   const user = await ensureUserInDb();
   const rankings = user ? await getUserRankings(user.id) : [];
-  const serverBeenTo = rankings.map((r) =>
-    toCachedBeenToRanking({
-      id: r.id,
-      rankPosition: r.rankPosition,
-      sentiment: r.sentiment,
-      ratingOutOf10: r.ratingOutOf10,
-      shop: r.shop,
-    })
-  );
+  const serverBeenTo = rankings.map((r) => toCachedBeenToRanking({ ...r, shop: r.shop }));
   const wantToTryCount = user ? (await getWantToTryList(user.id)).length : 0;
 
   return (

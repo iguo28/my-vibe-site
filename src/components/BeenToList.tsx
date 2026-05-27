@@ -2,18 +2,15 @@ import Link from "next/link";
 import { ShopCard } from "@/components/ShopCard";
 import type { Sentiment } from "@/db/schema";
 import type { ShopPriceAverage } from "@/lib/shops";
+import { shopPath } from "@/lib/shopCache";
+import type { CachedBeenToShop } from "@/lib/beenToCache";
 
 type Ranking = {
   id: string;
   rankPosition: number;
   sentiment: string;
   ratingOutOf10: number | null;
-  shop: {
-    id: string;
-    name: string;
-    address: string | null;
-    city: string | null;
-  };
+  shop: CachedBeenToShop;
 };
 
 export function BeenToList({
@@ -44,10 +41,21 @@ export function BeenToList({
     <ul className="space-y-2">
       {rankings.map((r) => {
         const price = priceAverages[r.shop.id];
+        const shopForLink: CachedBeenToShop = {
+          id: r.shop.id,
+          name: r.shop.name,
+          address: r.shop.address,
+          city: r.shop.city,
+          externalPlaceId: r.shop.externalPlaceId,
+          lat: r.shop.lat,
+          lng: r.shop.lng,
+        };
+
         return (
           <li key={r.id}>
             <ShopCard
               shop={r.shop}
+              href={shopPath(shopForLink)}
               rank={r.rankPosition}
               sentiment={r.sentiment as Sentiment}
               ratingOutOf10={r.ratingOutOf10}
