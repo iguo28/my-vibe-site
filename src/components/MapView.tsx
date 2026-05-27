@@ -51,9 +51,13 @@ function FitBounds({
 export function MapView({
   beenTo,
   wantToTry,
+  geocoding = false,
+  totalShops = 0,
 }: {
   beenTo: BeenToEntry[];
   wantToTry: WantToTryEntry[];
+  geocoding?: boolean;
+  totalShops?: number;
 }) {
   const pins = useMemo(() => {
     const list: Array<{
@@ -107,6 +111,14 @@ export function MapView({
 
   const missingCount = pins.length - withCoords.length;
 
+  const mapKey = useMemo(
+    () =>
+      withCoords
+        .map((p) => `${p.kind}:${p.shop.id}:${p.shop.lat}:${p.shop.lng}`)
+        .join("|") || "empty",
+    [withCoords]
+  );
+
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rl, setRl] = useState<null | {
     MapContainer: typeof import("react-leaflet").MapContainer;
@@ -158,14 +170,20 @@ export function MapView({
 
   return (
     <div className="space-y-3">
-      {missingCount > 0 && (
+      {geocoding && (
+        <p className="rounded-xl border border-cream-dark bg-white px-3 py-2 text-sm text-latte">
+          Placing {totalShops} shop{totalShops === 1 ? "" : "s"} on the map…
+        </p>
+      )}
+
+      {missingCount > 0 && !geocoding && (
         <p className="rounded-xl border border-dashed border-cream-dark bg-white px-3 py-2 text-sm text-latte">
           {missingCount} shop{missingCount === 1 ? "" : "s"} could not be placed
           on the map (no address found). Try re-adding from search.
         </p>
       )}
 
-      {withCoords.length === 0 && pins.length > 0 && (
+      {withCoords.length === 0 && pins.length > 0 && !geocoding && (
         <p className="rounded-xl border border-dashed border-cream-dark bg-white px-3 py-2 text-sm text-latte">
           No locations yet — add shops from search so we can pin them on the
           map.
@@ -180,6 +198,7 @@ export function MapView({
           <div className="h-[520px] animate-pulse bg-cream-dark" />
         ) : (
           <rl.MapContainer
+            key={mapKey}
             center={center}
             zoom={12}
             scrollWheelZoom={true}
@@ -232,14 +251,17 @@ export function MapView({
             className="inline-block h-3.5 w-3.5 rounded-full border border-espresso/80"
             style={{ background: BEEN_TO_COLOR }}
           />
-          Been to
+          Been to ({beenTo.filter((r) => parseCoord(r.shop.lat) != null).length}
+          /{beenTo.length})
         </span>
         <span className="inline-flex items-center gap-2">
           <span
             className="inline-block h-3.5 w-3.5 rounded-full border border-espresso/80"
             style={{ background: WANT_TO_TRY_COLOR }}
           />
-          Want to try
+          Want to try (
+          {wantToTry.filter((w) => parseCoord(w.shop.lat) != null).length}/
+          {wantToTry.length})
         </span>
       </div>
     </div>

@@ -10,6 +10,10 @@ export function addWantToTryCache(shop: CachedShop) {
   sessionStorage.setItem(KEY, JSON.stringify(list));
 }
 
+export function isInWantToTryCache(shopId: string): boolean {
+  return getWantToTryCache().some((s) => s.id === shopId);
+}
+
 export function getWantToTryCache(): CachedShop[] {
   if (typeof window === "undefined") return [];
   const raw = sessionStorage.getItem(KEY);

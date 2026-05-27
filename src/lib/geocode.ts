@@ -51,6 +51,29 @@ export async function geocodeShopLocation(
   }
 }
 
+/** Browser-safe geocode via our API (Nominatim blocks some client origins). */
+export async function geocodeShopLocationClient(
+  name: string,
+  address?: string | null,
+  city?: string | null
+): Promise<{ lat: number; lng: number } | null> {
+  const params = new URLSearchParams({ name });
+  if (address) params.set("address", address);
+  if (city) params.set("city", city);
+
+  try {
+    const res = await fetch(`/api/geocode?${params.toString()}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { lat?: number; lng?: number };
+    const lat = parseCoord(data.lat);
+    const lng = parseCoord(data.lng);
+    if (lat == null || lng == null) return null;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
 /** Nominatim usage policy: max ~1 request per second. */
 export function geocodeDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 1_100));

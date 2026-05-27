@@ -1,9 +1,6 @@
-import { RankFlow } from "@/components/RankFlow";
+import { Suspense } from "react";
+import { ShopPageBody } from "@/components/ShopPageBody";
 import { ShopPageFromCache } from "@/components/ShopPageFromCache";
-import {
-  ShopBackLink,
-  ShopBeenToContent,
-} from "@/components/ShopBeenToContent";
 import { ensureUserInDb, getCurrentUser } from "@/lib/session";
 import {
   getShop,
@@ -12,7 +9,11 @@ import {
   getAveragePriceByShops,
   upsertShopById,
 } from "@/lib/shops";
-import { cachedShopToPlacePayload, shopFromSearchParams } from "@/lib/shopCache";
+import {
+  cachedShopToPlacePayload,
+  isWantToTryFromSearchParams,
+  shopFromSearchParams,
+} from "@/lib/shopCache";
 import { isOnWantToTry } from "@/lib/wantToTry";
 
 export default async function ShopPage({
@@ -33,8 +34,22 @@ export default async function ShopPage({
     shop = await getShop(id);
   }
 
+  const fromWantToTry = isWantToTryFromSearchParams(sp);
+
   if (!shop) {
-    return <ShopPageFromCache shopId={id} initialShop={fromQuery} />;
+    return (
+      <Suspense
+        fallback={
+          <div className="h-32 animate-pulse rounded-2xl bg-cream-dark" />
+        }
+      >
+        <ShopPageFromCache
+          shopId={id}
+          initialShop={fromQuery}
+          fromWantToTry={fromWantToTry}
+        />
+      </Suspense>
+    );
   }
 
   await ensureUserInDb();
@@ -46,49 +61,44 @@ export default async function ShopPage({
   const priceAverages = await getAveragePriceByShops([id]);
   const price = priceAverages[id];
   const onWantToTry =
-    user && !userRanking ? await isOnWantToTry(user.id, id) : false;
+    user && !userRanking
+      ? fromWantToTry || (await isOnWantToTry(user.id, id))
+      : false;
 
-  const location = [shop.address, shop.city].filter(Boolean).join(" · ");
   const hasRanking = !!userRanking;
 
   return (
-    <div className="space-y-8">
-      <section>
-        <ShopBackLink onWantToTry={onWantToTry} hasRanking={hasRanking} />
-        <h1 className="text-2xl font-semibold text-espresso">{shop.name}</h1>
-        {location && <p className="mt-1 text-sm text-latte">{location}</p>}
-      </section>
-
-      <ShopBeenToContent
-        shop={{
-          id: shop.id,
-          name: shop.name,
-          address: shop.address,
-          city: shop.city,
-        }}
-        serverRanking={
-          userRanking
-            ? {
-                id: userRanking.id,
-                rankPosition: userRanking.rankPosition,
-                sentiment: userRanking.sentiment,
-                ratingOutOf10: userRanking.ratingOutOf10,
-                priceRating: userRanking.priceRating,
-                flavorRating: userRanking.flavorRating,
-                flavorNotes: userRanking.flavorNotes,
-                vibeRating: userRanking.vibeRating,
-                foodRating: userRanking.foodRating,
-                favoriteItems: userRanking.favoriteItems,
-              }
-            : null
-        }
-        rankedCount={
-          allRankings.filter((r) => r.coffeeShopId !== shop.id).length
-        }
-        priceAverage={price?.average}
-        priceCount={price?.count}
-        onWantToTry={onWantToTry}
-      />
-    </div>
+    <ShopPageBody
+      shop={{
+        id: shop.id,
+        name: shop.name,
+        address: shop.address,
+        city: shop.city,
+      }}
+      serverRanking={
+        userRanking
+          ? {
+              id: userRanking.id,
+              rankPosition: userRanking.rankPosition,
+              sentiment: userRanking.sentiment,
+              ratingOutOf10: userRanking.ratingOutOf10,
+              priceRating: userRanking.priceRating,
+              flavorRating: userRanking.flavorRating,
+              flavorNotes: userRanking.flavorNotes,
+              vibeRating: userRanking.vibeRating,
+              foodRating: userRanking.foodRating,
+              favoriteItems: userRanking.favoriteItems,
+            }
+          : null
+      }
+      rankedCount={
+        allRankings.filter((r) => r.coffeeShopId !== shop.id).length
+      }
+      priceAverage={price?.average}
+      priceCount={price?.count}
+      onWantToTry={onWantToTry}
+      fromWantToTry={fromWantToTry}
+      hasRanking={hasRanking}
+    />
   );
 }

@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { BeenToShopDetail } from "@/components/BeenToShopDetail";
+import { ShopCriteriaForm } from "@/components/ShopCriteriaForm";
 import { SENTIMENT_META } from "@/lib/ranking";
 import { SentimentCup } from "@/components/SentimentCup";
-import { addBeenToCache, type CachedBeenToRanking } from "@/lib/beenToCache";
+import {
+  addBeenToCache,
+  getBeenToCacheEntry,
+  type CachedBeenToRanking,
+} from "@/lib/beenToCache";
 import { cachedShopToPlacePayload, getCachedShop } from "@/lib/shopCache";
 import type { Sentiment } from "@/db/schema";
 
@@ -14,7 +19,19 @@ type Props = {
   rankedCount: number;
 };
 
-type Step = "sentiment" | "compare" | "refine" | "done";
+type Step = "sentiment" | "compare" | "refine" | "criteria";
+
+type CompletedRanking = {
+  rankPosition: number;
+  sentiment: Sentiment;
+  ratingOutOf10: number | null;
+  priceRating: number | null;
+  flavorRating: number | null;
+  flavorNotes: string | null;
+  vibeRating: number | null;
+  foodRating: number | null;
+  favoriteItems: string | null;
+};
 
 type Opponent = { shopId: string; shopName: string };
 
@@ -91,8 +108,26 @@ function PreferButtons({
   );
 }
 
+function toCompletedRanking(
+  entry: CachedBeenToRanking,
+  fallbackSentiment: Sentiment
+): CompletedRanking {
+  return {
+    rankPosition: entry.rankPosition,
+    sentiment: (entry.sentiment as Sentiment) || fallbackSentiment,
+    ratingOutOf10: entry.ratingOutOf10,
+    priceRating: entry.priceRating ?? null,
+    flavorRating: entry.flavorRating ?? null,
+    flavorNotes: entry.flavorNotes ?? null,
+    vibeRating: entry.vibeRating ?? null,
+    foodRating: entry.foodRating ?? null,
+    favoriteItems: entry.favoriteItems ?? null,
+  };
+}
+
 export function RankFlow({ shopId, shopName, rankedCount }: Props) {
-  const router = useRouter();
+  const [completedRanking, setCompletedRanking] =
+    useState<CompletedRanking | null>(null);
 
   function rankBody(extra: Record<string, unknown>) {
     const cached = getCachedShop(shopId);
@@ -107,6 +142,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     s: Sentiment,
     ranking?: CachedBeenToRanking | null
   ) {
+    const sessionShop = getCachedShop(shopId);
     if (ranking) {
       addBeenToCache({
         ...ranking,
@@ -114,22 +150,30 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
           ...ranking.shop,
           id: shopId,
           name: ranking.shop.name || shopName,
+          address: ranking.shop.address ?? sessionShop?.address ?? null,
+          city: ranking.shop.city ?? sessionShop?.city ?? null,
+          lat: ranking.shop.lat ?? sessionShop?.lat ?? null,
+          lng: ranking.shop.lng ?? sessionShop?.lng ?? null,
+          externalPlaceId:
+            ranking.shop.externalPlaceId ?? sessionShop?.externalPlaceId,
         },
       });
       return;
     }
-    const cached = getCachedShop(shopId);
     addBeenToCache({
       id: `cache-${shopId}`,
       rankPosition: rankedCount + 1,
       sentiment: s,
       ratingOutOf10: null,
-      shop: cached
+      shop: sessionShop
         ? {
-            id: cached.id,
-            name: cached.name,
-            address: cached.address,
-            city: cached.city,
+            id: sessionShop.id,
+            name: sessionShop.name,
+            address: sessionShop.address,
+            city: sessionShop.city,
+            externalPlaceId: sessionShop.externalPlaceId,
+            lat: sessionShop.lat ?? null,
+            lng: sessionShop.lng ?? null,
           }
         : {
             id: shopId,
@@ -146,6 +190,8 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
   const [opponent, setOpponent] = useState<Opponent | null>(null);
   const [opponentIsClose, setOpponentIsClose] = useState(false);
   const [refineQueue, setRefineQueue] = useState<Opponent[]>([]);
+  const [pendingRanking, setPendingRanking] =
+    useState<CachedBeenToRanking | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,8 +214,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
         await fetchOpponent(0, Math.max(0, rankedCount - 1), s);
         setStep("compare");
       } else {
-        saveRankingToCache(s, data.ranking);
-        completeDone();
+        completeDone(s, data.ranking);
       }
     } catch {
       setError("Something went wrong. Try again.");
@@ -215,17 +260,25 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
 
     const queue: Opponent[] = data.refineComparisons ?? [];
     if (queue.length > 0) {
+      setPendingRanking(data.ranking ?? null);
       setRefineQueue(queue);
       setStep("refine");
     } else {
-      saveRankingToCache(s, data.ranking);
-      completeDone();
+      completeDone(s, data.ranking);
     }
   }
 
-  function completeDone() {
-    setStep("done");
-    router.refresh();
+  function completeDone(s: Sentiment, apiRanking?: CachedBeenToRanking | null) {
+    if (apiRanking) {
+      saveRankingToCache(s, apiRanking);
+    } else {
+      saveRankingToCache(s);
+    }
+    const entry = apiRanking ?? getBeenToCacheEntry(shopId);
+    if (entry) {
+      setCompletedRanking(toCompletedRanking(entry, s));
+    }
+    setStep("criteria");
   }
 
   async function submitCompare(
@@ -274,7 +327,10 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
   function advanceRefine() {
     const next = refineQueue.slice(1);
     setRefineQueue(next);
-    if (next.length === 0) completeDone();
+    if (next.length === 0 && sentiment) {
+      completeDone(sentiment, pendingRanking);
+      setPendingRanking(null);
+    }
   }
 
   async function preferNewInRefine(opponentId: string) {
@@ -292,11 +348,34 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     advanceRefine();
   }
 
-  if (step === "done") {
+  if (step === "criteria" && completedRanking) {
     return (
-      <p className="rounded-2xl border border-caramel/40 bg-caramel/10 px-4 py-3 text-sm text-mocha">
-        Added to your been-to list.
-      </p>
+      <div className="space-y-6">
+        <BeenToShopDetail
+          rankPosition={completedRanking.rankPosition}
+          sentiment={completedRanking.sentiment}
+          ratingOutOf10={completedRanking.ratingOutOf10}
+        />
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-latte">
+            Your ratings
+          </h2>
+          <p className="text-sm text-latte">
+            Optional — rate price, flavor, vibe, and more.
+          </p>
+          <ShopCriteriaForm
+            shopId={shopId}
+            initial={{
+              priceRating: completedRanking.priceRating,
+              flavorRating: completedRanking.flavorRating,
+              flavorNotes: completedRanking.flavorNotes,
+              vibeRating: completedRanking.vibeRating,
+              foodRating: completedRanking.foodRating,
+              favoriteItems: completedRanking.favoriteItems,
+            }}
+          />
+        </section>
+      </div>
     );
   }
 

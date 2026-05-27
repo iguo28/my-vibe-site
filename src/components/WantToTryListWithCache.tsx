@@ -11,6 +11,8 @@ type Entry = {
     name: string;
     address: string | null;
     city: string | null;
+    lat?: number | null;
+    lng?: number | null;
   };
 };
 
@@ -40,6 +42,8 @@ export function WantToTryListWithCache({
           name: shop.name,
           address: shop.address,
           city: shop.city,
+          lat: shop.lat ?? null,
+          lng: shop.lng ?? null,
         },
       });
     }

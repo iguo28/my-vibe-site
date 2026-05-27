@@ -37,10 +37,12 @@ function read(): CachedBeenToRanking[] {
   }
 }
 
-function write(list: CachedBeenToRanking[]) {
+function write(list: CachedBeenToRanking[], options?: { silent?: boolean }) {
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event("cafe-connect-been-to-changed"));
+  if (!options?.silent) {
+    window.dispatchEvent(new Event("cafe-connect-been-to-changed"));
+  }
 }
 
 export function getBeenToCache(): CachedBeenToRanking[] {
@@ -79,6 +81,21 @@ export function removeBeenToCache(shopId: string) {
   write(read().filter((r) => r.shop.id !== shopId));
 }
 
+export function updateBeenToCacheShopCoords(
+  shopId: string,
+  lat: number,
+  lng: number
+) {
+  const list = read();
+  const idx = list.findIndex((r) => r.shop.id === shopId);
+  if (idx < 0) return;
+  list[idx] = {
+    ...list[idx],
+    shop: { ...list[idx].shop, lat, lng },
+  };
+  write(list, { silent: true });
+}
+
 export function mergeBeenToRankings(
   server: CachedBeenToRanking[],
   cache: CachedBeenToRanking[]
@@ -103,6 +120,9 @@ export function mergeBeenToRankings(
       favoriteItems: existing.favoriteItems ?? r.favoriteItems,
       shop: {
         ...existing.shop,
+        name: existing.shop.name || r.shop.name,
+        address: existing.shop.address ?? r.shop.address,
+        city: existing.shop.city ?? r.shop.city,
         externalPlaceId: existing.shop.externalPlaceId ?? r.shop.externalPlaceId,
         lat: existing.shop.lat ?? r.shop.lat,
         lng: existing.shop.lng ?? r.shop.lng,

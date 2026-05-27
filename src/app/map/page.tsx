@@ -1,11 +1,12 @@
+import { MapPageClient } from "@/components/MapPageClient";
 import { ensureUserInDb } from "@/lib/session";
+import { toCachedBeenToRanking } from "@/lib/beenToSerialize";
 import {
   ensureShopCoordinates,
   getUserRankings,
   type ShopRecord,
 } from "@/lib/shops";
 import { getWantToTryList } from "@/lib/wantToTry";
-import { MapView } from "@/components/MapView";
 
 async function enrichListCoords<T extends { shop: ShopRecord }>(
   entries: T[],
@@ -43,8 +44,33 @@ export default async function MapPage() {
         </p>
       </section>
 
-      <MapView beenTo={beenTo} wantToTry={wantToTry} />
+      <MapPageClient
+        serverBeenTo={beenTo.map((r) =>
+          toCachedBeenToRanking({
+            id: r.id,
+            rankPosition: r.rankPosition,
+            sentiment: r.sentiment,
+            ratingOutOf10: r.ratingOutOf10,
+            priceRating: r.priceRating,
+            flavorRating: r.flavorRating,
+            flavorNotes: r.flavorNotes,
+            vibeRating: r.vibeRating,
+            foodRating: r.foodRating,
+            favoriteItems: r.favoriteItems,
+            shop: r.shop,
+          })
+        )}
+        serverWantToTry={wantToTry.map((e) => ({
+          shop: {
+            id: e.shop.id,
+            name: e.shop.name,
+            address: e.shop.address,
+            city: e.shop.city,
+            lat: e.shop.lat,
+            lng: e.shop.lng,
+          },
+        }))}
+      />
     </div>
   );
 }
-

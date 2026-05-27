@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BeenToShopDetail } from "@/components/BeenToShopDetail";
 import { RemoveFromBeenToButton } from "@/components/RemoveFromBeenToButton";
 import { ShopCriteriaForm } from "@/components/ShopCriteriaForm";
+import { ShopWantToTryView } from "@/components/ShopWantToTryView";
 import { RankFlow } from "@/components/RankFlow";
+import { useClientMounted } from "@/hooks/useClientMounted";
 import type { Sentiment } from "@/db/schema";
 import {
   getBeenToCacheEntry,
   type CachedBeenToRanking,
 } from "@/lib/beenToCache";
 import { cachedShopToPlacePayload } from "@/lib/shopCache";
+import { isInWantToTryCache } from "@/lib/wantToTryCache";
 
 type Shop = {
   id: string;
@@ -40,6 +44,7 @@ type Props = {
   priceAverage?: number;
   priceCount?: number;
   onWantToTry: boolean;
+  fromWantToTry?: boolean;
 };
 
 function toRankingRow(entry: CachedBeenToRanking): RankingRow {
@@ -64,9 +69,25 @@ export function ShopBeenToContent({
   priceAverage,
   priceCount,
   onWantToTry,
+  fromWantToTry = false,
 }: Props) {
+  const mounted = useClientMounted();
+  const searchParams = useSearchParams();
+  const forceBeenTo = searchParams.get("been") === "1";
+  const wtFromUrl =
+    searchParams.get("wt") === "1" || searchParams.get("wt") === "true";
+
   const [ranking, setRanking] = useState<RankingRow | null>(serverRanking);
   const [loading, setLoading] = useState(!serverRanking);
+
+  const onWantList =
+    !forceBeenTo &&
+    (onWantToTry ||
+      fromWantToTry ||
+      wtFromUrl ||
+      (mounted && isInWantToTryCache(shop.id)));
+
+  const hasBeenToCache = mounted && !!getBeenToCacheEntry(shop.id);
 
   useEffect(() => {
     if (serverRanking) {
@@ -75,13 +96,24 @@ export function ShopBeenToContent({
       return;
     }
 
+    if (!mounted) return;
+
+    if (onWantList && !hasBeenToCache) {
+      setRanking(null);
+      setLoading(false);
+      return;
+    }
+
     const cached = getBeenToCacheEntry(shop.id);
     if (!cached) {
+      setRanking(null);
       setLoading(false);
       return;
     }
 
     let cancelled = false;
+    setLoading(true);
+
     (async () => {
       try {
         const res = await fetch("/api/rank/restore", {
@@ -128,22 +160,30 @@ export function ShopBeenToContent({
     return () => {
       cancelled = true;
     };
-  }, [serverRanking, shop.id, shop.name, shop.address, shop.city]);
+  }, [
+    serverRanking,
+    shop.id,
+    shop.name,
+    shop.address,
+    shop.city,
+    mounted,
+    onWantList,
+    hasBeenToCache,
+  ]);
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="h-40 animate-pulse rounded-2xl bg-cream-dark" aria-hidden />
     );
   }
 
+  if (!ranking && onWantList) {
+    return <ShopWantToTryView shopId={shop.id} shopName={shop.name} />;
+  }
+
   if (!ranking) {
     return (
       <section className="space-y-3">
-        {onWantToTry && (
-          <p className="rounded-xl bg-caramel/10 px-3 py-2 text-sm text-mocha">
-            On your want-to-try list — pick a cup when you&apos;ve been here.
-          </p>
-        )}
         <h2 className="text-sm font-medium uppercase tracking-wide text-latte">
           Add to been-to list
         </h2>
@@ -190,14 +230,29 @@ export function ShopBeenToContent({
 }
 
 export function ShopBackLink({
+  shopId,
   onWantToTry,
+  fromWantToTry = false,
   hasRanking,
 }: {
+  shopId: string;
   onWantToTry: boolean;
+  fromWantToTry?: boolean;
   hasRanking: boolean;
 }) {
-  const href = onWantToTry ? "/want-to-try" : hasRanking ? "/been-to" : "/";
-  const label = onWantToTry
+  const mounted = useClientMounted();
+  const searchParams = useSearchParams();
+  const wtFromUrl =
+    searchParams.get("wt") === "1" || searchParams.get("wt") === "true";
+
+  const wantToTry =
+    onWantToTry ||
+    fromWantToTry ||
+    wtFromUrl ||
+    (mounted && isInWantToTryCache(shopId));
+
+  const href = wantToTry ? "/want-to-try" : hasRanking ? "/been-to" : "/";
+  const label = wantToTry
     ? "want to try"
     : hasRanking
       ? "been-to list"

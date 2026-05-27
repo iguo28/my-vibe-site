@@ -9,6 +9,8 @@ type Entry = {
     name: string;
     address: string | null;
     city: string | null;
+    lat?: number | null;
+    lng?: number | null;
   };
 };
 
@@ -45,12 +47,17 @@ export function WantToTryList({ entries }: { entries: Entry[] }) {
             className="flex items-center gap-3 rounded-2xl border border-cream-dark bg-white p-4"
           >
             <Link
-              href={shopPath({
-                id: entry.shop.id,
-                name: entry.shop.name,
-                address: entry.shop.address,
-                city: entry.shop.city,
-              } satisfies CachedShop)}
+              href={shopPath(
+                {
+                  id: entry.shop.id,
+                  name: entry.shop.name,
+                  address: entry.shop.address,
+                  city: entry.shop.city,
+                  lat: entry.shop.lat,
+                  lng: entry.shop.lng,
+                } satisfies CachedShop,
+                { wantToTry: true }
+              )}
               className="min-w-0 flex-1 transition hover:opacity-80"
             >
               <h3 className="truncate font-medium text-espresso">
@@ -65,12 +72,17 @@ export function WantToTryList({ entries }: { entries: Entry[] }) {
               shopName={entry.shop.name}
             />
             <Link
-              href={shopPath({
-                id: entry.shop.id,
-                name: entry.shop.name,
-                address: entry.shop.address,
-                city: entry.shop.city,
-              } satisfies CachedShop)}
+              href={shopPath(
+                {
+                  id: entry.shop.id,
+                  name: entry.shop.name,
+                  address: entry.shop.address,
+                  city: entry.shop.city,
+                  lat: entry.shop.lat,
+                  lng: entry.shop.lng,
+                } satisfies CachedShop,
+                { wantToTry: true }
+              )}
               className="shrink-0 text-latte-light"
               aria-hidden
             >

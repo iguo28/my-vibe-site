@@ -42,9 +42,22 @@ export function shopToQueryString(shop: CachedShop): string {
   return p.toString();
 }
 
-export function shopPath(shop: CachedShop): string {
+export function shopPath(
+  shop: CachedShop,
+  options?: { wantToTry?: boolean }
+): string {
   const q = shopToQueryString(shop);
+  if (options?.wantToTry) {
+    return `/shop/${shop.id}?${q}&wt=1`;
+  }
   return `/shop/${shop.id}?${q}`;
+}
+
+export function isWantToTryFromSearchParams(
+  sp: Record<string, string | string[] | undefined>
+): boolean {
+  const v = sp.wt;
+  return v === "1" || v === "true";
 }
 
 export function wantToTryPath(shop: CachedShop): string {
