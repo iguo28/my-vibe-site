@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { cacheShop } from "@/lib/shopCache";
 
 export function AddShopForm() {
   const router = useRouter();
@@ -24,6 +25,15 @@ export function AddShopForm() {
     setLoading(false);
     if (res.ok) {
       const shop = await res.json();
+      cacheShop({
+        id: shop.id,
+        name: shop.name,
+        address: shop.address,
+        city: shop.city,
+        externalPlaceId: shop.externalPlaceId,
+        lat: shop.lat,
+        lng: shop.lng,
+      });
       router.push(`/shop/${shop.id}`);
     }
   }

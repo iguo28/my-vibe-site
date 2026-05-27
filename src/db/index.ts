@@ -96,7 +96,6 @@ export function initDb() {
     `);
   }
 
-  // Always run migrations (dev HMR / schema additions)
   migrateCoffeeShops();
   migrateUserRankings();
 }

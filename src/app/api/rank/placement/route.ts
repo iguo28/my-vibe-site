@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { ensureUser } from "@/lib/session";
-import { getPlacementOpponent } from "@/lib/shops";
+import {
+  getPlacementOpponent,
+  syncShopFromClient,
+  type ClientShopPayload,
+} from "@/lib/shops";
 
 export async function POST(req: Request) {
   const user = await ensureUser();
-  const { shopId, low, high } = await req.json();
+  const { shopId, low, high, shop } = (await req.json()) as {
+    shopId: string;
+    low: number;
+    high: number;
+    shop?: ClientShopPayload;
+  };
+
+  await syncShopFromClient(shopId, shop);
 
   if (low > high) {
     return NextResponse.json({ done: true, insertIndex: low });

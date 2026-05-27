@@ -17,6 +17,39 @@ import {
   scoresAreClose,
 } from "./ranking";
 import type { Sentiment } from "@/db/schema";
+import { geocodeDelay, geocodeShopLocation, parseCoord } from "./geocode";
+
+export type ShopRecord = typeof coffeeShops.$inferSelect;
+export { parseCoord };
+
+/** Fill in lat/lng from address when missing (persists to DB). */
+export async function ensureShopCoordinates(
+  shop: ShopRecord
+): Promise<ShopRecord> {
+  const lat = parseCoord(shop.lat);
+  const lng = parseCoord(shop.lng);
+  if (lat != null && lng != null) {
+    return lat === shop.lat && lng === shop.lng
+      ? shop
+      : { ...shop, lat, lng };
+  }
+
+  const coords = await geocodeShopLocation(
+    shop.name,
+    shop.address,
+    shop.city
+  );
+  await geocodeDelay();
+
+  if (!coords) return shop;
+
+  await db
+    .update(coffeeShops)
+    .set({ lat: coords.lat, lng: coords.lng })
+    .where(eq(coffeeShops.id, shop.id));
+
+  return { ...shop, lat: coords.lat, lng: coords.lng };
+}
 
 export async function searchShops(query: string) {
   const q = query.trim();
@@ -44,6 +77,61 @@ export async function getShop(shopId: string) {
     .from(coffeeShops)
     .where(eq(coffeeShops.id, shopId));
   return shop ?? null;
+}
+
+/** Recreate a shop on this server instance (fixes Vercel serverless DB split). */
+export async function upsertShopById(
+  shopId: string,
+  data: {
+    name: string;
+    address?: string | null;
+    city?: string | null;
+    externalPlaceId?: string;
+    lat?: number | null;
+    lng?: number | null;
+  }
+) {
+  const existing = await getShop(shopId);
+  if (existing) return existing;
+
+  await db.insert(coffeeShops).values({
+    id: shopId,
+    name: data.name.trim(),
+    address: data.address?.trim() || null,
+    city: data.city?.trim() || null,
+    externalPlaceId: data.externalPlaceId?.trim() || shopId,
+    lat: data.lat ?? null,
+    lng: data.lng ?? null,
+  });
+  await db.insert(globalScores).values({
+    coffeeShopId: shopId,
+    score: 1500,
+    ratingCount: 0,
+  });
+
+  const [shop] = await db
+    .select()
+    .from(coffeeShops)
+    .where(eq(coffeeShops.id, shopId));
+  return shop!;
+}
+
+export type ClientShopPayload = {
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  externalPlaceId?: string;
+  lat?: number | null;
+  lng?: number | null;
+};
+
+/** Ensures the shop row exists on this server (sent from browser cache on Vercel). */
+export async function syncShopFromClient(
+  shopId: string,
+  shop?: ClientShopPayload | null
+) {
+  if (!shop?.name?.trim()) return;
+  await upsertShopById(shopId, shop);
 }
 
 export async function createShop(data: {
@@ -93,7 +181,22 @@ export async function findOrCreateShopFromPlace(data: {
   lng?: number | null;
 }) {
   const existing = await getShopByExternalPlaceId(data.externalPlaceId);
-  if (existing) return existing;
+  if (existing) {
+    const lat = parseCoord(data.lat ?? null);
+    const lng = parseCoord(data.lng ?? null);
+    if (
+      lat != null &&
+      lng != null &&
+      (parseCoord(existing.lat) == null || parseCoord(existing.lng) == null)
+    ) {
+      await db
+        .update(coffeeShops)
+        .set({ lat, lng })
+        .where(eq(coffeeShops.id, existing.id));
+      return { ...existing, lat, lng };
+    }
+    return existing;
+  }
 
   return createShop({
     name: data.name,

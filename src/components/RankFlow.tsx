@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Sentiment } from "@/db/schema";
 import { SENTIMENT_META } from "@/lib/ranking";
 import { SentimentCup } from "@/components/SentimentCup";
+import { cachedShopToPlacePayload, getCachedShop } from "@/lib/shopCache";
 
 type Props = {
   shopId: string;
@@ -91,6 +92,15 @@ function PreferButtons({
 
 export function RankFlow({ shopId, shopName, rankedCount }: Props) {
   const router = useRouter();
+
+  function rankBody(extra: Record<string, unknown>) {
+    const cached = getCachedShop(shopId);
+    return {
+      ...extra,
+      shopId,
+      ...(cached ? { shop: cachedShopToPlacePayload(cached) } : {}),
+    };
+  }
   const [step, setStep] = useState<Step>("sentiment");
   const [sentiment, setSentiment] = useState<Sentiment | null>(null);
   const [low, setLow] = useState(0);
@@ -109,7 +119,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
       const res = await fetch("/api/rank/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopId, sentiment: s }),
+        body: JSON.stringify(rankBody({ sentiment: s })),
       });
       if (!res.ok) throw new Error("Failed to start");
       const data = await res.json();
@@ -138,7 +148,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     const res = await fetch("/api/rank/placement", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shopId, low: l, high: h, sentiment: s }),
+      body: JSON.stringify(rankBody({ low: l, high: h, sentiment: s })),
     });
     const data = await res.json();
     setLoading(false);
@@ -159,7 +169,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     const res = await fetch("/api/rank/finish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shopId, insertIndex, sentiment: s }),
+      body: JSON.stringify(rankBody({ insertIndex, sentiment: s })),
     });
     const data = await res.json();
     setLoading(false);
@@ -187,12 +197,9 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
     await fetch("/api/rank/compare", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shopId,
-        opponentShopId: opponentId,
-        choice,
-        sentiment,
-      }),
+      body: JSON.stringify(
+        rankBody({ opponentShopId: opponentId, choice, sentiment })
+      ),
     });
     setLoading(false);
   }

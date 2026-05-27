@@ -1,10 +1,10 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import { RankFlow } from "@/components/RankFlow";
+import { ShopPageFromCache } from "@/components/ShopPageFromCache";
 import { BeenToShopDetail } from "@/components/BeenToShopDetail";
 import { RemoveFromBeenToButton } from "@/components/RemoveFromBeenToButton";
 import { ShopCriteriaForm } from "@/components/ShopCriteriaForm";
-import { getCurrentUser } from "@/lib/session";
+import { ensureUserInDb, getCurrentUser } from "@/lib/session";
 import {
   getShop,
   getUserRankingForShop,
@@ -21,8 +21,11 @@ export default async function ShopPage({
 }) {
   const { id } = await params;
   const shop = await getShop(id);
-  if (!shop) notFound();
+  if (!shop) {
+    return <ShopPageFromCache shopId={id} />;
+  }
 
+  await ensureUserInDb();
   const user = await getCurrentUser();
   const userRanking = user
     ? await getUserRankingForShop(user.id, id)
