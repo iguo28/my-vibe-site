@@ -4,7 +4,15 @@ import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
 
-const dataDir = path.join(process.cwd(), "data");
+/** Vercel serverless only allows writes under /tmp; local dev uses ./data */
+function getDataDir() {
+  if (process.env.VERCEL) {
+    return path.join("/tmp", "cafe-connect-data");
+  }
+  return path.join(process.cwd(), "data");
+}
+
+const dataDir = getDataDir();
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
