@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Sentiment } from "@/db/schema";
 import { SENTIMENT_META } from "@/lib/ranking";
 import { SentimentCup } from "@/components/SentimentCup";
+import { addBeenToCache, type CachedBeenToRanking } from "@/lib/beenToCache";
 import { cachedShopToPlacePayload, getCachedShop } from "@/lib/shopCache";
+import type { Sentiment } from "@/db/schema";
 
 type Props = {
   shopId: string;
@@ -101,6 +102,36 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
       ...(cached ? { shop: cachedShopToPlacePayload(cached) } : {}),
     };
   }
+
+  function saveRankingToCache(
+    s: Sentiment,
+    ranking?: CachedBeenToRanking | null
+  ) {
+    if (ranking) {
+      addBeenToCache(ranking);
+      return;
+    }
+    const cached = getCachedShop(shopId);
+    addBeenToCache({
+      id: `cache-${shopId}`,
+      rankPosition: rankedCount + 1,
+      sentiment: s,
+      ratingOutOf10: null,
+      shop: cached
+        ? {
+            id: cached.id,
+            name: cached.name,
+            address: cached.address,
+            city: cached.city,
+          }
+        : {
+            id: shopId,
+            name: shopName,
+            address: null,
+            city: null,
+          },
+    });
+  }
   const [step, setStep] = useState<Step>("sentiment");
   const [sentiment, setSentiment] = useState<Sentiment | null>(null);
   const [low, setLow] = useState(0);
@@ -130,6 +161,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
         await fetchOpponent(0, Math.max(0, rankedCount - 1), s);
         setStep("compare");
       } else {
+        saveRankingToCache(s, data.ranking);
         completeDone();
       }
     } catch {
@@ -179,6 +211,7 @@ export function RankFlow({ shopId, shopName, rankedCount }: Props) {
       setRefineQueue(queue);
       setStep("refine");
     } else {
+      saveRankingToCache(s, data.ranking);
       completeDone();
     }
   }

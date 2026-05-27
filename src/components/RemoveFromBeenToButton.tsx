@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { removeBeenToCache } from "@/lib/beenToCache";
 
 export function RemoveFromBeenToButton({
   shopId,
@@ -30,6 +31,7 @@ export function RemoveFromBeenToButton({
         body: JSON.stringify({ shopId }),
       });
       if (!res.ok) throw new Error("Failed");
+      removeBeenToCache(shopId);
       router.push("/");
       router.refresh();
     } catch {

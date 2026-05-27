@@ -359,6 +359,26 @@ export async function getUserRankingForShop(userId: string, shopId: string) {
   return row ?? null;
 }
 
+/** Ranking + shop for API responses and client cache. */
+export async function getRankingEntryForShop(userId: string, shopId: string) {
+  const ranking = await getUserRankingForShop(userId, shopId);
+  if (!ranking) return null;
+  const shop = await getShop(shopId);
+  if (!shop) return null;
+  return {
+    id: ranking.id,
+    rankPosition: ranking.rankPosition,
+    sentiment: ranking.sentiment,
+    ratingOutOf10: ranking.ratingOutOf10,
+    shop: {
+      id: shop.id,
+      name: shop.name,
+      address: shop.address,
+      city: shop.city,
+    },
+  };
+}
+
 /** Shops user has ranked, sorted by score (for binary-search placement) */
 export async function getRankedShopsForPlacement(userId: string) {
   const rows = await getUserRankings(userId);

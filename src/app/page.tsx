@@ -4,7 +4,9 @@ import { SearchBox } from "@/components/SearchBox";
 import { SearchResults } from "@/components/SearchResults";
 import { AddShopForm } from "@/components/AddShopForm";
 import { CafeLogo } from "@/components/CafeLogo";
-import { getCurrentUser } from "@/lib/session";
+import { BeenToSavedCount } from "@/components/BeenToListWithCache";
+import { ensureUserInDb } from "@/lib/session";
+import { toCachedBeenToRanking } from "@/lib/beenToSerialize";
 import { getUserRankings } from "@/lib/shops";
 import { getWantToTryList } from "@/lib/wantToTry";
 
@@ -15,10 +17,18 @@ export default async function HomePage({
 }) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const user = await getCurrentUser();
+  const user = await ensureUserInDb();
   const rankings = user ? await getUserRankings(user.id) : [];
+  const serverBeenTo = rankings.map((r) =>
+    toCachedBeenToRanking({
+      id: r.id,
+      rankPosition: r.rankPosition,
+      sentiment: r.sentiment,
+      ratingOutOf10: r.ratingOutOf10,
+      shop: r.shop,
+    })
+  );
   const wantToTryCount = user ? (await getWantToTryList(user.id)).length : 0;
-  const beenToCount = rankings.length;
 
   return (
     <div className="space-y-8">
@@ -88,7 +98,8 @@ export default async function HomePage({
                   </p>
                 </div>
                 <p className="mt-0.5 text-sm text-latte">
-                  Ranked list ({beenToCount})
+                  Ranked list (
+                  <BeenToSavedCount serverRankings={serverBeenTo} />)
                 </p>
               </div>
               <span className="shrink-0 text-latte-light transition group-hover:translate-x-0.5">

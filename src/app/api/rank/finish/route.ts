@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureUser } from "@/lib/session";
 import {
   finishPlacement,
+  getRankingEntryForShop,
   syncShopFromClient,
   type ClientShopPayload,
 } from "@/lib/shops";
@@ -24,8 +25,11 @@ export async function POST(req: Request) {
     sentiment,
     insertIndex
   );
+  const ranking = await getRankingEntryForShop(user.id, shopId);
+
   return NextResponse.json({
     ok: true,
     refineComparisons: refineComparisons ?? [],
+    ranking,
   });
 }

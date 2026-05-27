@@ -1,11 +1,24 @@
 import Link from "next/link";
-import { BeenToList } from "@/components/BeenToList";
-import { getCurrentUser } from "@/lib/session";
+import {
+  BeenToListWithCache,
+  BeenToSavedCount,
+} from "@/components/BeenToListWithCache";
+import { ensureUserInDb } from "@/lib/session";
 import { getUserRankings, getAveragePriceByShops } from "@/lib/shops";
+import { toCachedBeenToRanking } from "@/lib/beenToSerialize";
 
 export default async function BeenToPage() {
-  const user = await getCurrentUser();
+  const user = await ensureUserInDb();
   const rankings = user ? await getUserRankings(user.id) : [];
+  const serverRankings = rankings.map((r) =>
+    toCachedBeenToRanking({
+      id: r.id,
+      rankPosition: r.rankPosition,
+      sentiment: r.sentiment,
+      ratingOutOf10: r.ratingOutOf10,
+      shop: r.shop,
+    })
+  );
   const shopIds = rankings.map((r) => r.shop.id);
   const priceAverages = await getAveragePriceByShops(shopIds);
 
@@ -21,7 +34,7 @@ export default async function BeenToPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-sm font-medium uppercase tracking-wide text-latte">
-            Saved ({rankings.length})
+            Saved (<BeenToSavedCount serverRankings={serverRankings} />)
           </h2>
           <Link
             href="/"
@@ -30,7 +43,10 @@ export default async function BeenToPage() {
             Find shops →
           </Link>
         </div>
-        <BeenToList rankings={rankings} priceAverages={priceAverages} />
+        <BeenToListWithCache
+          serverRankings={serverRankings}
+          priceAverages={priceAverages}
+        />
       </section>
     </div>
   );

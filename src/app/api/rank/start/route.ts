@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/session";
 import {
   startRanking,
   getRankedShopsForPlacement,
+  getRankingEntryForShop,
   syncShopFromClient,
   type ClientShopPayload,
 } from "@/lib/shops";
@@ -25,8 +26,11 @@ export async function POST(req: Request) {
   const ranked = await getRankedShopsForPlacement(user.id);
   const others = ranked.filter((r) => r.coffeeShopId !== shopId);
 
+  const ranking = await getRankingEntryForShop(user.id, shopId);
+
   return NextResponse.json({
     needsPlacement: others.length > 0,
     rankedCount: others.length,
+    ranking,
   });
 }
