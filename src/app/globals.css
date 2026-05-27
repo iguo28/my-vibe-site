@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --color-cream: #faf6f1;
+  --color-cream-dark: #f0e8de;
+  --color-espresso: #2c1810;
+  --color-espresso-light: #4a3228;
+  --color-latte: #8b6f47;
+  --color-latte-light: #a68b5b;
+  --color-mocha: #5c4033;
+  --color-caramel: #c4a574;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-cream text-espresso font-sans min-h-screen;
+  }
+}
